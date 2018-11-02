@@ -55,8 +55,8 @@
                     foodEat: 0,//吃到食物数量
                     foodFail: 0,//丢失食物输了
                     foodTimer: 0,//计时器id
-                    timeTotal: 10 * 1000,//总时间
-                    timeRemain: 10 * 1000,//剩余时间
+                    timeTotal: 60 * 1000,//总时间
+                    timeRemain: 60 * 1000,//剩余时间
                     timeStart: new Date()
                 };
                 $scope.isGameOver = false;//是否游戏结束
@@ -202,7 +202,7 @@
                         var foodLeft = parseFloat($scope.foodStyle.left);
                         var foodTop = parseFloat($scope.foodStyle.top);
                         $scope.gi.timeRemain = $scope.gi.timeTotal - (new Date().getTime() - $scope.gi.timeStart.getTime());
-                        foodTop += 1;
+                        foodTop += 2;
                         $scope.foodStyle.top = foodTop + "px";
 
                         if (foodTop >= pandaTop - foodHeight) {
