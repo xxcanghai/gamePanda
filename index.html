@@ -1,0 +1,365 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=640, user-scalable=no, target-densitydpi=device-dpi" />
+    <title>DeviceOrientationDemo</title>
+    <script src="js/jquery-1.9.1.js"></script>
+    <script src="js/angular.js"></script>
+    <style>
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+        html { font-size: 62.5%; font-weight: 300; font-family: 微软雅黑; }
+        body { padding: 0; margin: 0; min-height: 100%; height: 100%; font-size: 2rem; overflow: hidden; background-image: url("images/bg.png"); background-repeat: no-repeat; background-size: cover; background-color: rgb(237, 178, 95); }
+        .title { text-align: center; margin: 0 auto; font-size: 3rem; }
+        .panda { width: 13.3rem; height: 12.1rem; display: inline-block; position: absolute; bottom: 5rem; left: 0; background-image: url("images/pdNormal.png"); background-repeat: no-repeat; background-size: contain; }
+        .food { width: 6rem; height: 6rem; display: inline-block; position: absolute; top: -5rem; left: 0; z-index: 1; background-repeat: no-repeat; background-size: contain; }
+
+        .info { display: none; }
+        .gameInfo { font-weight: bold; color: red; position: absolute; top: 2rem; left: 0; width: 100%; color: rgb(237, 178, 95); }
+        .gameInfo .eat { position: absolute; left: 2rem; top: 0; }
+        .gameInfo .time { position: absolute; right: 2rem; top: 0; }
+        .f1 { background-image: url("images/fd1.png"); }
+        .f2 { background-image: url("images/fd2.png"); }
+        .f3 { background-image: url("images/fd3.png"); }
+        .f4 { background-image: url("images/fd4.png"); }
+        .f5 { background-image: url("images/fd5.png"); }
+
+        .gameEnd { width: 41.8rem; height: 57.2rem; background-image: url("images/bgEnd.png"); background-repeat: no-repeat; background-size: contain; background-position: center top; position: absolute; left: 0; right: 0; top: 0; bottom: 0; margin: auto; }
+        .gameEnd .btnAgain { width: 100%; height: 9.4rem; background-image: url("images/btnAgain.png"); background-repeat: no-repeat; background-position: center top; position: absolute; top: 37rem;cursor: pointer; }
+        .gameEnd .text { color: rgb(102, 140, 43); position: absolute; left: 0; top: 17rem; right: 0; margin: 0 auto; font-size: 3.5rem; font-weight: normal; width: 100%; text-align: center; }
+        .gameEnd .text b { color: orange; margin: 0 1rem; }
+    </style>
+    <script>
+        window.onerror = function (e) {
+            alert(e.message);
+        }
+    </script>
+    <script type="text/javascript">
+        (function () {
+            var mod = angular.module("jch", []);
+            mod.controller("myCtrl", function ($scope) {
+                $scope.console = window.console;
+                $scope.Math = Math;
+
+                $scope.$panda = $(".panda");
+                $scope.$food = $(".food");
+                $scope.foodNum = "f1";
+                $scope.di = {
+                    alpha: 0,
+                    beta: 0,
+                    gamma: 0
+                };
+                $scope.mi = {};
+                $scope.gi = {
+                    foodEat: 0,//吃到食物数量
+                    foodFail: 0,//丢失食物输了
+                    foodTimer: 0,//计时器id
+                    timeTotal: 10 * 1000,//总时间
+                    timeRemain: 10 * 1000,//剩余时间
+                    timeStart: new Date()
+                };
+                $scope.isGameOver = false;//是否游戏结束
+                $scope.padeStyle = { left: "0" };
+                $scope.foodStyle = { left: "0", top: "0", display: "none" };
+
+                $scope.initOrientation = function () {
+                    if (!window.DeviceOrientationEvent) {
+                        alert('当前设备不支持 陀螺仪');
+                        return;
+                    }
+                    var maxLeft = $(window).width() - $scope.$panda.eq(0).width();
+                    var timerId = 0;
+                    var callTime = new Date().getTime();
+                    window.addEventListener('deviceorientation', function (event) {
+                        $scope.di.alpha = event.alpha;
+                        $scope.di.beta = event.beta;
+                        $scope.di.gamma = event.gamma;
+
+                        //gm:0 ~ 75 ~ 150//修改Gamma数据
+                        //var gm = event.gamma + gammaRange;
+                        //per:0 ~ 50 ~ 100//换算为百分比的数据
+                        //var per = gm / gammaRange * 2 * 100;
+                        //if (per < 0) per = 0;
+                        //if (per > 100) per = 100;
+                        //控制触发频率为200毫秒一次
+                        //var triggerRate = 200;
+                        //var nowTime = new Date().getTime();
+                        //if (nowTime - callTime < triggerRate) return;
+                        //控制每次移动最大值
+                        //var moveMaxOffset = 0.8;//%
+                        //控制忽略每次移动最小值
+                        //var moveMinOffset = 0.2;//%
+                        //if (per - $scope.padeStyle > moveMaxOffset) {
+                        //    $scope.padeStyle += moveMaxOffset;
+                        //} else if ($scope.padeStyle - per > moveMaxOffset) {
+                        //    $scope.padeStyle -= moveMaxOffset;
+                        //} else if (Math.max(per, $scope.padeStyle) - Math.min(per, $scope.padeStyle) < moveMinOffset) {
+                        //    //return;
+                        //} else {
+                        //    $scope.padeStyle = per;
+                        //}
+
+                        if (Math.abs(event.gamma) < 1) {
+                            $scope.$apply();
+                            return;
+                        }
+
+                        if (event.gamma > 90) {
+                            $scope.$apply();
+                            return;
+                        }
+
+                        var moveOffset = 0.1; //%，每次位移的值
+                        var dstLeft = parseFloat($scope.padeStyle.left);
+                        var maxMoveOffset = 50; //%，最大一次性位移百分比
+
+                        moveOffset = maxMoveOffset * (Math.abs(event.gamma) / 90);
+
+                        if (event.gamma > 0) {
+                            //clearInterval(timerId);
+                            //timerId = setInterval(function () {
+                            move(event.gamma, moveOffset);
+                            //}, 100);
+                        } else if (event.gamma < 0) {
+                            //clearInterval(timerId);
+                            //timerId = setInterval(function () {
+                            move(event.gamma, moveOffset * -1);
+                            //}, 100);
+                        }
+
+                        function move(gam, offset) {
+                            dstLeft += offset;
+                            if (dstLeft <= 0) {
+                                dstLeft = 0;
+                                clearInterval(timerId);
+                            } else if (dstLeft >= maxLeft) {
+                                dstLeft = maxLeft;
+                                clearInterval(timerId);
+                            }
+                            $scope.padeStyle.left = dstLeft + "px";
+                            $scope.$apply();
+                        }
+
+                    }, false);
+                }
+
+                $scope.initDeviceMotion = function () {
+                    if (!window.DeviceMotionEvent) {
+                        alert('当前设备不支持获取设备移动速度');
+                        return;
+                    }
+                    window.addEventListener("devicemotion", function (event) {
+                        var s = "";
+                        for (var i in event) {
+                            try {
+                                s += "【" + i.toString() + "】 : " + event[i].toString();
+                            } catch (ex) {
+                                s += "【" + i.toString() + "】 : <" + ex.message + ">";
+                            }
+                            s += "\r\n";
+                        }
+
+                        //alert(s);
+                        $scope.mi.interval = event.interval;
+                        $scope.mi.acc = event.acceleration;
+                        $scope.mi.accGravity = event.accelerationIncludingGravity;
+                        $scope.mi.rotationRate = event.rotationRate;
+                        $scope.$apply();
+                    }, false);
+                }
+
+                //创建一个食物
+                $scope.createFood = function (endCallback) {
+                    endCallback = (typeof (endCallback) === "function") ? endCallback : $.noop;
+                    var foodMaxLeft = ($(window).width() - $scope.$food.width());
+                    var foodMaxTop = ($(window).height() - $scope.$food.height());
+
+                    var foodLeft = random(0, foodMaxLeft);
+                    var foodWidth = $scope.$food.width();
+                    var foodHeight = $scope.$food.height();
+
+                    var pandaTop = $scope.$panda.get(0).getBoundingClientRect().top;
+                    var pandaLeft = $scope.$panda.get(0).getBoundingClientRect().left;
+                    var pandaRight = $scope.$panda.get(0).getBoundingClientRect().right;
+                    var pandaWidth = $scope.$panda.get(0).getBoundingClientRect().width;
+                    $scope.foodStyle.left = foodLeft + "px";
+                    $scope.foodStyle.display = "block";
+                    $scope.foodNum = "f" + random(1, 5);
+                    clearInterval($scope.gi.foodTimer);
+                    //启动计时器
+                    $scope.gi.foodTimer = setInterval(foodAnimate, 5);
+
+                    function random(min, max) {
+                        var n = Math.random() * max + min;
+                        n = parseInt(n, 10);
+                        return n;
+                    }
+
+                    function foodAnimate() {
+                        pandaLeft = $scope.$panda.get(0).getBoundingClientRect().left;
+                        pandaRight = $scope.$panda.get(0).getBoundingClientRect().right;
+                        var foodLeft = parseFloat($scope.foodStyle.left);
+                        var foodTop = parseFloat($scope.foodStyle.top);
+                        $scope.gi.timeRemain = $scope.gi.timeTotal - (new Date().getTime() - $scope.gi.timeStart.getTime());
+                        foodTop += 1;
+                        $scope.foodStyle.top = foodTop + "px";
+
+                        if (foodTop >= pandaTop - foodHeight) {
+                            if (foodLeft >= pandaLeft - foodWidth && foodLeft <= pandaRight) {
+                                //debugger;
+                                clearInterval($scope.gi.foodTimer);
+                                $scope.foodStyle.display = "none";
+                                $scope.foodStyle.top = "0";
+                                console.log("吃到食物！");
+                                return endCallback(true);
+                            }
+                        }
+
+                        if (foodTop >= foodMaxTop) {
+                            clearInterval($scope.gi.foodTimer);
+                            $scope.foodStyle.display = "none";
+                            $scope.foodStyle.top = "0";
+                            console.log("食物丢失");
+                            return endCallback(false);
+                        }
+
+                        if ($scope.gi.timeRemain <= 0) {
+                            clearInterval($scope.gi.foodTimer);
+                            $scope.foodStyle.display = "none";
+                            $scope.foodStyle.top = "0";
+                            console.log("时间到");
+                            $scope.isGameOver = true;
+                            //return endCallback(false);
+                        }
+
+                        $scope.$apply();
+                    }
+                }
+
+                //当食物被吃到或掉落后触发
+                $scope.foodEndCallback = function (isEat) {
+                    if (isEat) {
+                        $scope.gi.foodEat += 1;
+                    } else {
+                        $scope.gi.foodFail += 1;
+                    }
+                    clearInterval($scope.gi.foodTimer);
+                    $scope.$apply();
+                    return $scope.createFood($scope.foodEndCallback);
+                }
+
+                //游戏开始
+                $scope.startGame = function () {
+                    $scope.gi.timeStart = new Date();
+                    $scope.createFood($scope.foodEndCallback);
+                };
+
+                //显示游戏结束界面
+                $scope.endGame = function() {
+
+                };
+
+                //游戏重置
+                $scope.resetGame = function () {
+
+                };
+
+                $scope.btnAgainClick = function() {
+                    window.location.reload();
+                };
+                //-----
+                $scope.initOrientation();
+                $scope.initDeviceMotion();
+                $scope.startGame();
+
+
+            });
+            //mod.directive("colorBox", function () {
+            //    return {
+            //        restrict: "C",
+            //        //template: ""
+            //        link:function() {
+            //            console.log(this,arguments)
+            //        }
+            //    };
+            //});
+        }());
+
+    </script>
+    <script>
+        function deviceMotionHandler(eventData) {
+            var acceleration = eventData.accelerationIncludingGravity;
+            var rawAcceleration = "[" + Math.round(acceleration.x) + ", " + Math.round(acceleration.y) + ", " + Math.round(acceleration.z) + "]";
+            var facingUp = -1;
+            if (acceleration.z > 0) {
+                facingUp = +1;
+            }
+            var tiltLR = Math.round(((acceleration.x) / 9.81) * -90);
+            var tiltFB = Math.round(((acceleration.y + 9.81) / 9.81) * 90 * facingUp);
+            document.getElementById("moAccel").innerHTML = rawAcceleration;
+            document.getElementById("moCalcTiltLR").innerHTML = tiltLR;
+            document.getElementById("moCalcTiltFB").innerHTML = tiltFB;
+            var rotation = "rotate(" + tiltLR + "deg) (1,0,0, " + (tiltFB) + "deg)";
+            document.getElementById("imgLogo").style.webkitTransform = rotation;
+        }
+
+        (function () {
+            var SHAKE_THRESHOLD = 800;
+            var last_update = 0;
+            var x, y, z, last_x, last_y, last_z;
+            function deviceMotionHandler(eventData) {
+                var acceleration = eventData.accelerationIncludingGravity;
+                var curTime = new Date().getTime();
+                if ((curTime - last_update) > 300) {
+                    var diffTime = curTime - last_update;
+                    last_update = curTime;
+                    x = acceleration.x;
+                    y = acceleration.y;
+                    z = acceleration.z;
+                    var speed = Math.abs(x + y + z - last_x - last_y - last_z) / diffTime * 10000;
+                    if (speed > SHAKE_THRESHOLD) {
+                        alert("shaked!");
+                    }
+                    last_x = x;
+                    last_y = y;
+                    last_z = z;
+                }
+            }
+        }());
+    </script>
+</head>
+<body ng-app="jch" ng-controller="myCtrl">
+    <div class="food" ng-class="foodNum" ng-style="foodStyle"></div>
+    <div class="panda" ng-style="padeStyle" ng-hide="isGameOver"></div>
+    <div class="info">
+        <div class="di">
+            Orientation-Alpha: {{di.alpha}}<br />
+            Orientation-Beta: {{di.beta}}<br />
+            Orientation-Gamma: {{di.gamma}}<br />
+        </div>
+        <div>acceleration-X：{{mi.acc.x}}</div>
+        <div>acceleration-Y：{{mi.acc.y}}</div>
+        <div>acceleration-Z：{{mi.acc.z}}</div>
+        <div>accelerationIncludingGravity-X：{{mi.accGravity.x}}</div>
+        <div>accelerationIncludingGravity-Y：{{mi.accGravity.y}}</div>
+        <div>accelerationIncludingGravity-Z：{{mi.accGravity.z}}</div>
+        <div>rotationRate-Alpha：{{mi.rotationRate.alpha}}</div>
+        <div>rotationRate-Beta：{{mi.rotationRate.beta}}</div>
+        <div>rotationRate-Gamma：{{mi.rotationRate.gamma}}</div>
+        <div>interval：{{mi.interval}}</div>
+    </div>
+    <div class="gameInfo">
+        <div style="display: none;">食物丢失：{{gi.foodFail}}个</div>
+        <div class="eat">吃到食物：{{gi.foodEat}}个</div>
+        <div class="time">时间：{{Math.round(gi.timeRemain/1000)}}</div>
+    </div>
+    <div class="gameEnd" ng-show="isGameOver">
+        <div class="text">恭喜你，在本次游戏中</div>
+        <div class="text" style="top: 23rem;">
+            获得了<b>{{gi.foodEat}}</b>分
+        </div>
+        <div class="btnAgain" ng-click="btnAgainClick()"></div>
+    </div>
+</body>
+</html>
